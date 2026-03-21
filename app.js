@@ -1593,9 +1593,10 @@ Bons treinos!`;
         if (searchQuery) {
             const query = this.normalizeText(searchQuery);
             filtered = filtered.filter(ex =>
-                this.normalizeText(ex.name).includes(query) ||
-                this.normalizeText(ex.category).includes(query) ||
-                (ex.muscle && this.normalizeText(ex.muscle).includes(query))
+                this.normalizeText(ex.name || ex.nome || "").includes(query) ||
+                this.normalizeText(ex.category || ex.categoria || "").includes(query) ||
+                (ex.muscle && this.normalizeText(ex.muscle).includes(query)) ||
+                (ex.musculo && this.normalizeText(ex.musculo).includes(query))
             );
         }
 
@@ -1604,7 +1605,7 @@ Bons treinos!`;
         grouped['Geral'] = grouped['Geral'] || [];
 
         filtered.forEach(ex => {
-            const c = ex.category || 'Geral';
+            const c = ex.category || ex.categoria || 'Geral';
             if (!grouped[c]) grouped[c] = [];
             grouped[c].push(ex);
         });
@@ -1660,8 +1661,10 @@ Bons treinos!`;
                             <div style="padding:1rem;">
                                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                     <div>
-                                        <strong style="font-size:0.95rem; color:#fff; display:block; margin-bottom:2px;">${ex.name}</strong>
-                                        <small style="color:var(--primary); opacity:0.8; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">${ex.muscle ? ex.muscle : (ex.category || 'Geral')}</small>
+                                        <strong style="font-size:0.95rem; color:#fff; display:block; margin-bottom:2px;">${ex.name || ex.nome || 'Exercício'}</strong>
+                                        <small style="color:var(--primary); opacity:0.8; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">
+                                            ${ex.muscle || ex.musculo || ex.category || ex.categoria || 'Geral'}
+                                        </small>
                                     </div>
                                     <div style="display:flex; gap:0.2rem;">
                                         ${isAdmin ? `
@@ -1738,13 +1741,18 @@ Bons treinos!`;
                 const name = item.nome || item.name;
                 if (!name) return;
 
-                const exists = this.state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase());
+                const exists = this.state.exercises.some(ex => {
+                    const existingName = ex.name || ex.nome || "";
+                    return existingName.toLowerCase() === name.toLowerCase();
+                });
+
                 if (!exists) {
                     this.state.exercises.push({
                         id: Date.now() + Math.floor(Math.random() * 1000000),
                         name: name,
-                        videoUrl: "",
-                        category: "Geral"
+                        category: item.categoria || item.category || "Geral",
+                        muscle: item.musculo || item.muscle || "",
+                        videoUrl: item.videoUrl || ""
                     });
                     addedCount++;
                 }
