@@ -27,6 +27,7 @@ class FitnessApp {
         this.adminTab = 'teachers';
         this.spySubView = 'training';
         this.dashboardMonth = new Date().toISOString().substring(0, 7);
+        this.selectedExercises = []; // Armazenar IDs selecionados para acções em massa
         this.planRestrictions = {
              'Musculação': { allowClasses: false },
              'Pilates': { allowClasses: true, filter: ['Pilates'] },
@@ -200,6 +201,12 @@ class FitnessApp {
                     this.state.admins.push({
                         id: 1, name: AppConfig.appName + ' Master', email: AppConfig.defaultAdminEmail, password: 'admin', role: 'admin'
                     });
+                }
+
+                // 3. Auto-import de exercícios se a base estiver vazia
+                if (this.isLoggedIn && this.role === 'admin' && (!this.state.exercises || this.state.exercises.length === 0)) {
+                    console.log("Base de dados vazia detectada. A iniciar auto-import...");
+                    this.importLocalBaseExercicios(false);
                 }
 
                 // 3. Sincronização de Utilizadores QR
@@ -1524,8 +1531,10 @@ Bons treinos!`;
 
     renderExerciseLibrary(container) {
         const isAdmin = this.role === 'admin';
+        const exercisesCount = (this.state.exercises || []).length;
+        
         const controls = isAdmin ? `
-                <div style="display:flex; gap:0.5rem; flex-wrap: wrap;">
+                <div style="display:flex; gap:0.5rem; flex-wrap: wrap; justify-content: flex-end;">
                     <button class="btn btn-secondary btn-sm" onclick="app.showManageExerciseCategoriesModal()" title="Gerir Categorias"><i class="fas fa-tags"></i> <span class="hide-mobile">Categorias</span></button>
                     <button class="btn btn-secondary btn-sm" onclick="app.exportExerciseDatabase()" title="Exportar Backup"><i class="fas fa-file-export"></i> <span class="hide-mobile">Exportar</span></button>
                     <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-exercise-input').click()" title="Importar Backup"><i class="fas fa-file-import"></i> <span class="hide-mobile">Importar</span></button>
@@ -1534,18 +1543,41 @@ Bons treinos!`;
                     <button class="btn btn-primary btn-sm" onclick="app.showAddExerciseModal()"><i class="fas fa-plus"></i> <span class="hide-mobile">Novo</span></button>
                 </div>` : '';
 
+        const bulkActions = isAdmin && this.selectedExercises.length > 0 ? `
+            <div class="glass-card animate-fade-in" style="background:rgba(var(--primary-rgb), 0.1); border:1px solid var(--primary); margin-bottom:1rem; padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center; position:sticky; top:10px; z-index:100;">
+                <div style="font-weight:700; color:var(--primary);">
+                    <i class="fas fa-check-double"></i> ${this.selectedExercises.length} selecionados
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary btn-sm" onclick="app.selectAllExercises(false)">Limpar</button>
+                    <button class="btn btn-primary btn-sm" onclick="app.showBulkCategorizeModal()" style="box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.3);">Categorizar em Massa</button>
+                </div>
+            </div>
+        ` : '';
+
         container.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap: wrap; gap: 1rem;">
-                <h2>Biblioteca de Exercícios</h2>
+                <h2 style="margin:0;">Biblioteca de Exercícios <small style="font-size:0.9rem; color:var(--text-muted); opacity:0.6;">(${exercisesCount})</small></h2>
                 ${controls}
             </div>
 
-            <div class="search-container">
+            ${bulkActions}
+
+            <div class="search-container" style="margin-bottom:1.5rem;">
                 <i class="fas fa-search"></i>
-                <input type="text" id="exercise-search-input" placeholder="Pesquisar exercícios..." 
+                <input type="text" id="exercise-search-input" placeholder="Pesquisar exercícios por nome ou músculo..." 
                     oninput="app.renderExerciseList(this.value)"
                     class="search-bar">
             </div>
+
+            ${isAdmin ? `
+            <div style="margin-bottom:1rem; display:flex; gap:15px; align-items:center; font-size:0.85rem; color:var(--text-muted);">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="app.selectAllExercises(${this.selectedExercises.length < exercisesCount})">
+                    <input type="checkbox" ${this.selectedExercises.length === exercisesCount && exercisesCount > 0 ? 'checked' : ''} style="pointer-events:none;">
+                    <span>Selecionar Todos</span>
+                </label>
+            </div>
+            ` : ''}
 
             <div id="exercise-list-container">
                 ${this.renderExerciseListGrouped()}
@@ -1554,6 +1586,7 @@ Bons treinos!`;
     }
 
     renderExerciseListGrouped(searchQuery = '') {
+        const isAdmin = this.role === 'admin';
         const cats = this.state.exerciseCategories || ["Geral"];
         let filtered = this.state.exercises || [];
 
@@ -1562,7 +1595,7 @@ Bons treinos!`;
             filtered = filtered.filter(ex =>
                 this.normalizeText(ex.name).includes(query) ||
                 this.normalizeText(ex.category).includes(query) ||
-                this.normalizeText(ex.muscle).includes(query)
+                (ex.muscle && this.normalizeText(ex.muscle).includes(query))
             );
         }
 
@@ -1578,16 +1611,17 @@ Bons treinos!`;
 
         if (searchQuery && filtered.length === 0) {
             return `
-                <div class="glass-card" style="text-align:center; padding:2rem;">
-                    <i class="fas fa-search" style="font-size:3rem; color:var(--text-muted); margin-bottom:1rem;"></i>
-                    <p style="color:var(--text-muted);">Nenhum exercício encontrado para "${searchQuery}"</p>
+                <div class="glass-card" style="text-align:center; padding:3rem;">
+                    <i class="fas fa-search" style="font-size:3rem; color:var(--text-muted); margin-bottom:1rem; opacity:0.3;"></i>
+                    <p style="color:var(--text-muted);">Não encontramos exercícios com "${searchQuery}"</p>
+                    <button class="btn btn-ghost" onclick="document.getElementById('exercise-search-input').value=''; app.renderExerciseList('')">Limpar Pesquisa</button>
                 </div>
             `;
         }
 
         let keys = [...cats];
         Object.keys(grouped).forEach(k => {
-            if (!keys.includes(k)) keys.push(k);
+            if (!keys.includes(k) && grouped[k].length > 0) keys.push(k);
         });
 
         return keys.map(catName => {
@@ -1595,46 +1629,53 @@ Bons treinos!`;
             if (!exercises || exercises.length === 0) return '';
 
             return `
-                <div style="margin-bottom: 2rem;">
-                    <h3 style="color:var(--primary); font-size:1.1rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px; margin-bottom:15px;">${catName}</h3>
+                <div style="margin-bottom: 2.5rem;" class="animate-fade-in">
+                    <h3 style="color:var(--primary); font-size:1.2rem; border-bottom:1px solid rgba(255,b255,255,0.05); padding-bottom:8px; margin-bottom:15px; display:flex; align-items:center; gap:10px;">
+                        <i class="fas fa-folder-open" style="font-size:0.9rem; opacity:0.6;"></i> ${catName}
+                        <small style="font-size:0.8rem; color:var(--text-muted); opacity:0.5;">(${exercises.length})</small>
+                    </h3>
                     <div class="video-grid">
                         ${exercises.map(ex => {
+                const isSelected = this.selectedExercises.includes(ex.id);
                 let cleanUrl = ex.videoUrl || '';
                 const hasVideo = cleanUrl && (cleanUrl.includes('youtube') || cleanUrl.includes('embed'));
-                if (hasVideo && !cleanUrl.includes('modestbranding')) {
-                    const params = "modestbranding=1&rel=0&showinfo=0";
-                    cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + params;
-                }
-
+                
                 return `
-                                <div class="glass-card" style="padding:0; overflow:hidden; position:relative; border-top: 3px solid var(--primary);">
-                                    ${hasVideo ? `<iframe width="100%" height="150" src="${cleanUrl}" frameborder="0" allowfullscreen></iframe>` : `
-                                        <div style="width:100%; height:150px; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; flex-direction: column; gap: 10px;">
-                                            ${ex.photoUrl ? `<img src="${ex.photoUrl}" style="width:100%; height:100%; object-fit:cover;">` : `
-                                                <i class="fas fa-video-slash" style="font-size:1.5rem; opacity: 0.3;"></i>
-                                                <small style="color:var(--text-muted); font-size: 0.7rem;">Sem vídeo disponível</small>
-                                            `}
-                                        </div>
-                                     `}
-                <div style="padding:0.75rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <strong style="font-size:1rem; color:#fff;">${ex.name}</strong><br>
-                                <small style="color:var(--text-muted);">${ex.muscle ? ex.muscle : (ex.category || 'Geral')}</small>
+                        <div class="glass-card" style="padding:0; overflow:hidden; position:relative; border-top: 3px solid ${isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; transition: transform 0.2s ease; border-radius:15px; background: ${isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'rgba(255,255,255,0.02)'};" onclick="if(event.target.tagName !== 'BUTTON' && event.target.tagName !== 'I' && ${isAdmin}) app.toggleExerciseSelection(${ex.id})">
+                            
+                            ${isAdmin ? `
+                                <div style="position:absolute; top:10px; left:10px; z-index:5;">
+                                    <input type="checkbox" style="width:18px; height:18px; accent-color:var(--primary);" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleExerciseSelection(${ex.id})">
+                                </div>
+                            ` : ''}
+
+                            ${hasVideo ? `<iframe width="100%" height="150" src="${cleanUrl}" frameborder="0" allowfullscreen style="opacity: ${isSelected ? '0.7' : '1'};"></iframe>` : `
+                                <div style="width:100%; height:150px; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; flex-direction: column; gap: 10px; opacity: ${isSelected ? '0.5' : '1'};">
+                                    ${ex.photoUrl ? `<img src="${ex.photoUrl}" style="width:100%; height:100%; object-fit:cover;">` : `
+                                        <i class="fas fa-dumbbell" style="font-size:2rem; opacity: 0.2;"></i>
+                                        <small style="color:var(--text-muted); font-size: 0.7rem;">Imagem não disponível</small>
+                                    `}
+                                </div>
+                            `}
+                            <div style="padding:1rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                    <div>
+                                        <strong style="font-size:0.95rem; color:#fff; display:block; margin-bottom:2px;">${ex.name}</strong>
+                                        <small style="color:var(--primary); opacity:0.8; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">${ex.muscle ? ex.muscle : (ex.category || 'Geral')}</small>
+                                    </div>
+                                    <div style="display:flex; gap:0.2rem;">
+                                        ${isAdmin ? `
+                                            <button class="btn btn-ghost btn-sm" style="color:var(--accent); padding:5px; width:32px; height:32px;" onclick="event.stopPropagation(); app.showEditExerciseModal(${ex.id})" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-ghost btn-sm" style="color:var(--danger); padding:5px; width:32px; height:32px;" onclick="event.stopPropagation(); app.deleteExercise(${ex.id})" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div style="display:flex; gap:0.4rem;">
-                            ${this.role === 'admin' ? `
-                                                <button class="btn btn-ghost btn-sm" style="color:var(--accent); padding:5px;" onclick="app.showEditExerciseModal(${ex.id})" title="Editar">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn btn-ghost btn-sm" style="color:var(--danger); padding:5px;" onclick="app.deleteExercise(${ex.id})" title="Eliminar">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                                ` : ''}
-                        </div>
-                    </div>
-                </div>
-                                </div >
                     `;
             }).join('')}
                     </div>
@@ -1683,8 +1724,8 @@ Bons treinos!`;
         reader.readAsText(file);
     }
 
-    async importLocalBaseExercicios() {
-        if (!confirm('Deseja importar a base de exercícios local (base_exercicios.json)? Novos exercícios serao adicionados aos existentes (sem duplicar nomes).')) return;
+    async importLocalBaseExercicios(askConfirm = true) {
+        if (askConfirm && !confirm('Deseja importar a base de exercícios local (base_exercicios.json)? Novos exercícios serão adicionados aos existentes (sem duplicar nomes).')) return;
 
         try {
             const res = await fetch('base_exercicios.json');
@@ -1700,7 +1741,7 @@ Bons treinos!`;
                 const exists = this.state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase());
                 if (!exists) {
                     this.state.exercises.push({
-                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        id: Date.now() + Math.floor(Math.random() * 1000000),
                         name: name,
                         videoUrl: "",
                         category: "Geral"
@@ -1710,14 +1751,14 @@ Bons treinos!`;
             });
 
             if (addedCount > 0) {
-                this.saveState();
+                await this.saveState();
                 this.renderContent();
-                alert(`${addedCount} novos exercícios adicionados com sucesso!`);
+                if (askConfirm) alert(`${addedCount} novos exercícios adicionados!`);
             } else {
-                alert('Nenhum exercício novo encontrado para adicionar.');
+                if (askConfirm) alert('Nenhum exercício novo encontrado.');
             }
         } catch (e) {
-            alert('Erro ao importar base local: ' + e.message);
+            console.error("Erro no auto-import:", e);
         }
     }
 
@@ -7570,6 +7611,65 @@ Bons treinos!`;
             const mailUrl = `mailto:${email}?subject= - Atualização de ${topic}&body=${encodeURIComponent(message)}`;
             window.location.href = mailUrl;
         }
+    }
+
+    // ---bulk exercise features ---
+    toggleExerciseSelection(id) {
+        const idx = this.selectedExercises.indexOf(id);
+        if (idx > -1) this.selectedExercises.splice(idx, 1);
+        else this.selectedExercises.push(id);
+        this.renderExerciseLibrary(document.getElementById('main-content'));
+    }
+
+    selectAllExercises(select) {
+        if (select) {
+            this.selectedExercises = this.state.exercises.map(ex => ex.id);
+        } else {
+            this.selectedExercises = [];
+        }
+        this.renderExerciseLibrary(document.getElementById('main-content'));
+    }
+
+    showBulkCategorizeModal() {
+        if (this.selectedExercises.length === 0) return;
+        const cats = this.state.exerciseCategories || ["Geral"];
+        const options = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+        this.showModal(`
+            <div style="text-align:center; padding:1.5rem;">
+                <h2 style="margin-top:0;">Categorizar em Massa</h2>
+                <p style="color:var(--text-muted); margin-bottom:1.5rem;">Aplicar categoria a <strong>${this.selectedExercises.length}</strong> exercícios selecionados.</p>
+                
+                <div style="margin-bottom:2rem; text-align:left;">
+                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">Selecionar Categoria</label>
+                    <select id="bulk-cat-select" style="width:100%; padding:12px; border-radius:12px; background:rgba(0,0,0,0.2); color:#fff; border:1px solid var(--surface-border);">
+                        ${options}
+                    </select>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+                    <button class="btn btn-secondary" onclick="app.closeModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="app.applyBulkCategory()">Aplicar Agora</button>
+                </div>
+            </div>
+        `, '400px');
+    }
+
+    async applyBulkCategory() {
+        const cat = document.getElementById('bulk-cat-select').value;
+        const count = this.selectedExercises.length;
+
+        this.state.exercises.forEach(ex => {
+            if (this.selectedExercises.includes(ex.id)) {
+                ex.category = cat;
+            }
+        });
+
+        this.selectedExercises = [];
+        await this.saveState();
+        this.closeModal();
+        this.renderContent();
+        this.showToast(`${count} exercícios movidos para ${cat}`);
     }
 
 }
