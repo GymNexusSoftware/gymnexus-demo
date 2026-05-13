@@ -1,4 +1,4 @@
-﻿window.onerror = function (message, source, lineno, colno, error) {
+window.onerror = function (message, source, lineno, colno, error) {
     console.error("Erro detectado:", message, "em", source, ":", lineno);
     
     // Se o erro for "Script error." com linha 0, é um erro de CORS ou falha de carregamento de CDN
@@ -854,11 +854,50 @@ class FitnessApp {
                 rememberMe ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION
             );
 
+            // Helper: finalizar sessão após credenciais validadas
+            const finishLogin = (foundUser, role) => {
+                foundUser.lastLogin = new Date().toLocaleString('pt-PT');
+                this.role = role;
+                this.currentUser = foundUser;
+                this.isLoggedIn = true;
+                if (role === 'client') this.currentClientId = foundUser.id;
+                if (rememberMe) {
+                    localStorage.setItem('kg_remember', 'true');
+                    localStorage.setItem('kg_saved_creds', JSON.stringify({ email }));
+                } else {
+                    localStorage.removeItem('kg_remember');
+                    localStorage.removeItem('kg_saved_creds');
+                }
+                this.saveState();
+                this.persistLogin();
+                this.renderAppInterface();
+            };
+
+            // Helper: encontrar utilizador no estado local pelo email
+            const findInState = (emailLower) => {
+                if (!this.state) this.state = {};
+                const admins = this.state.admins || [];
+                const teachers = this.state.teachers || [];
+                const clients = this.state.clients || [];
+                const a = admins.find(u => (u.email || '').toLowerCase() === emailLower);
+                const t = !a && teachers.find(u => (u.email || '').toLowerCase() === emailLower);
+                const c = !a && !t && clients.find(u => (u.email || '').toLowerCase() === emailLower);
+                return { user: a || t || c, role: a ? 'admin' : (t ? 'teacher' : 'client') };
+            };
+
             try {
-                // Tentativa 1: Firebase Auth (utilizadores ja migrados)
+                // Tentativa 1: Firebase Auth
                 await this.auth.signInWithEmailAndPassword(email, pass);
+
+                const { user: foundUser, role } = findInState(email);
+                if (!foundUser) {
+                    await this.auth.signOut();
+                    throw new Error('Utilizador autenticado mas não encontrado na base de dados. Contacte o administrador.');
+                }
+                finishLogin(foundUser, role);
+
             } catch (authError) {
-                // Tentativa 2: Migracao automatica (primeiro login apos implementar Firebase Auth)
+                // Tentativa 2: Credenciais na base de dados local (fallback)
                 const allUsers = [
                     ...(this.state.admins || []),
                     ...(this.state.teachers || []),
@@ -868,58 +907,21 @@ class FitnessApp {
                     (u.email || '').toLowerCase() === email && u.password === pass
                 );
 
-                if (legacyUser) {
-                    try {
-                        // Criar conta Firebase Auth e migrar automaticamente
-                        await this.auth.createUserWithEmailAndPassword(email, pass);
-                        console.log('Utilizador migrado para Firebase Auth:', email);
-                    } catch (createError) {
-                        if (createError.code === 'auth/email-already-in-use') {
-                            // Esta no Firebase Auth mas password errada
-                            throw { code: 'auth/wrong-password' };
-                        }
-                        throw createError;
-                    }
-                } else {
+                if (!legacyUser) {
                     throw { code: 'auth/wrong-password' };
                 }
+
+                // Credenciais locais válidas — determinar role
+                const { role: localRole } = findInState(email);
+
+                // Tentar migrar para Firebase Auth em background (silencioso, não bloqueia)
+                this.auth.createUserWithEmailAndPassword(email, pass)
+                    .then(() => console.log('Utilizador migrado para Firebase Auth:', email))
+                    .catch(e => console.warn('Migração Firebase Auth (não crítico):', e.code));
+
+                // Login local bem-sucedido independentemente do Firebase Auth
+                finishLogin(legacyUser, localRole);
             }
-
-            // Firebase Auth validou - encontrar dados do utilizador na base de dados
-            if (!this.state) this.state = {};
-            if (!this.state.admins) this.state.admins = [];
-            if (!this.state.teachers) this.state.teachers = [];
-            if (!this.state.clients) this.state.clients = [];
-
-            const emailLower = email.toLowerCase();
-            const admin = this.state.admins.find(a => (a.email || '').toLowerCase() === emailLower);
-            const teacher = !admin && this.state.teachers.find(t => (t.email || '').toLowerCase() === emailLower);
-            const client = !admin && !teacher && this.state.clients.find(c => (c.email || '').toLowerCase() === emailLower);
-            const foundUser = admin || teacher || client;
-
-            if (!foundUser) {
-                await this.auth.signOut();
-                throw new Error('Utilizador nao encontrado na base de dados. Contacte o administrador.');
-            }
-
-            this.role = admin ? 'admin' : (teacher ? 'teacher' : 'client');
-            foundUser.lastLogin = new Date().toLocaleString('pt-PT');
-            this.currentUser = foundUser;
-            this.isLoggedIn = true;
-            if (this.role === 'client') this.currentClientId = foundUser.id;
-
-            // Guardar email (sem password) para conveniencia
-            if (rememberMe) {
-                localStorage.setItem('kg_remember', 'true');
-                localStorage.setItem('kg_saved_creds', JSON.stringify({ email: email }));
-            } else {
-                localStorage.removeItem('kg_remember');
-                localStorage.removeItem('kg_saved_creds');
-            }
-
-            this.saveState();
-            this.persistLogin();
-            this.renderAppInterface();
 
         } catch (err) {
             const isWrongPass = err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials';
