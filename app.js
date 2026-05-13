@@ -86,18 +86,19 @@ class FitnessApp {
         this.isLoggedIn = false;
         this.currentUser = null;
 
-        // Initialize Firebase
-        this.firebaseAppConfig = {
-            apiKey: "AIzaSyD7cf3sfJBm0YsLOagu6or2hCTd-xcjO1E",
-            authDomain: "GymNexus.firebaseapp.com",
-            databaseURL: "https://GymNexus-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "GymNexus",
-            storageBucket: "GymNexus.firebasestorage.app",
-            messagingSenderId: "367817039949",
-            appId: "1:367817039949:web:5c72215819b9bb1eb07c04",
-            measurementId: "G-WY0QSKYVCR",
-            serverKey: "AIzaSyD7cf3sfJBm0YsLOagu6or2hCTd-xcjO1E" // ATENÇÃO: Está chave deve começar por AAAA...
-        };
+        // Initialize Firebase — usa AppConfig.firebaseConfig definido em config.js
+        this.firebaseAppConfig = (typeof AppConfig !== 'undefined' && AppConfig.firebaseConfig)
+            ? AppConfig.firebaseConfig
+            : {
+                apiKey: "AIzaSyD7cf3sfJBm0YsLOagu6or2hCTd-xcjO1E",
+                authDomain: "kandalgym.firebaseapp.com",
+                databaseURL: "https://kandalgym-default-rtdb.europe-west1.firebasedatabase.app",
+                projectId: "kandalgym",
+                storageBucket: "kandalgym.firebasestorage.app",
+                messagingSenderId: "367817039949",
+                appId: "1:367817039949:web:5c72215819b9bb1eb07c04",
+                measurementId: "G-WY0QSKYVCR"
+            };
 
         try {
             if (!window.firebase) {
@@ -517,9 +518,12 @@ class FitnessApp {
                 }
 
                 // 2. Conta mestre garantida
-                if (!this.state.admins.some(a => a.email === 'admin@GymNexus.com')) {
+                const masterEmail = (typeof AppConfig !== 'undefined' && AppConfig.defaultAdminEmail)
+                    ? AppConfig.defaultAdminEmail
+                    : 'admin@GymNexus.com';
+                if (!this.state.admins.some(a => a.email === masterEmail)) {
                     this.state.admins.push({
-                        id: 1, name: 'GymNexus Master', email: 'admin@GymNexus.com', password: 'admin', role: 'admin'
+                        id: 1, name: 'GymNexus Master', email: masterEmail, password: 'admin', role: 'admin'
                     });
                 }
 
