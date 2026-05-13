@@ -81,6 +81,16 @@ class FitnessApp {
         const vitalDicts = ['trainingPlans', 'predefinedPlans', 'mealPlans', 'evaluations', 'trainingHistory', 'messages', 'anamnesis', 'enrollments'];
         vitalDicts.forEach(d => { if (!this.state[d]) this.state[d] = {}; });
 
+        // Garantir conta master IMEDIATAMENTE (antes do Firebase carregar)
+        const _masterEmail = (typeof AppConfig !== 'undefined' && AppConfig.defaultAdminEmail)
+            ? AppConfig.defaultAdminEmail
+            : 'admin@GymNexus.com';
+        if (!this.state.admins.some(a => a.email === _masterEmail)) {
+            this.state.admins.push({
+                id: 1, name: 'GymNexus Master', email: _masterEmail, password: 'admin', role: 'admin'
+            });
+        }
+
         this.shownNotifications = JSON.parse(localStorage.getItem('shown_notifications') || '[]');
         this.lastChatCheck = Number(localStorage.getItem('kg_last_chat_check') || 0);
         this.isLoggedIn = false;
