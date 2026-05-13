@@ -1,4 +1,4 @@
-@keyframes pulse {
+﻿@keyframes pulse {
     0% {
         transform: scale(1);
         box-shadow: 0 0 0 0 rgba(145, 27, 43, 0.7);
@@ -1239,7 +1239,7 @@ option {
 
 .message-sent {
     align-self: flex-end;
-    background: #911B2B !important; /* Forçar Bordo KandalGym */
+    background: #911B2B !important; /* Forçar Bordo GymNexus */
     color: #ffffff !important;
     border-bottom-right-radius: 2px;
     box-shadow: 0 4px 12px rgba(145, 27, 43, 0.2);

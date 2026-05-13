@@ -1,4 +1,4 @@
-window.onerror = function (message, source, lineno, colno, error) {
+﻿window.onerror = function (message, source, lineno, colno, error) {
     console.error("Erro detectado:", message, "em", source, ":", lineno);
     
     // Se o erro for "Script error." com linha 0, é um erro de CORS ou falha de carregamento de CDN
@@ -23,7 +23,7 @@ window.onerror = function (message, source, lineno, colno, error) {
                     ${error ? `Pilha: ${error.stack.substring(0, 200)}...` : ''}
                 </div>
                 <div style="display:grid; gap:10px;">
-                    <button class="btn btn-primary" onclick="localStorage.removeItem('kandalgym_session'); localStorage.removeItem('kandalgym_state'); localStorage.removeItem('kg_v'); location.reload()">Reset & Recarregar (Recomendado)</button>
+                    <button class="btn btn-primary" onclick="localStorage.removeItem('GymNexus_session'); localStorage.removeItem('GymNexus_state'); localStorage.removeItem('kg_v'); location.reload()">Reset & Recarregar (Recomendado)</button>
                     <button class="btn btn-secondary" onclick="location.reload()">Tentar Novamente</button>
                 </div>
                 <p style="font-size:0.7rem; color:var(--text-muted); margin-top:1.5rem;">Dica: Se o erro persistir, tente abrir o link em modo anónimo ou limpe a cache do navegador.</p>
@@ -36,7 +36,7 @@ window.onerror = function (message, source, lineno, colno, error) {
 class FitnessApp {
     constructor() {
         this.appVersion = '2026.05.06.v90'; // Versão de controlo para Hard Reset v90
-        this.viewingDayIdx = Number(localStorage.getItem('kandalgym_vIdx') || 0); // Recuperar plano ativo
+        this.viewingDayIdx = Number(localStorage.getItem('GymNexus_vIdx') || 0); // Recuperar plano ativo
         this.checkForForceUpdate();
 
         this.role = 'client';
@@ -64,7 +64,7 @@ class FitnessApp {
         this.editingRecipeData = { name: '', description: '', videoUrl: '', ingredients: [] };
 
         // Tentar carregar estado do LocalStorage como cache inicial
-        const cachedState = localStorage.getItem('kandalgym_state');
+        const cachedState = localStorage.getItem('GymNexus_state');
         if (cachedState) {
             try {
                 this.state = JSON.parse(cachedState);
@@ -89,10 +89,10 @@ class FitnessApp {
         // Initialize Firebase
         this.firebaseAppConfig = {
             apiKey: "AIzaSyD7cf3sfJBm0YsLOagu6or2hCTd-xcjO1E",
-            authDomain: "kandalgym.firebaseapp.com",
-            databaseURL: "https://kandalgym-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "kandalgym",
-            storageBucket: "kandalgym.firebasestorage.app",
+            authDomain: "GymNexus.firebaseapp.com",
+            databaseURL: "https://GymNexus-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "GymNexus",
+            storageBucket: "GymNexus.firebasestorage.app",
             messagingSenderId: "367817039949",
             appId: "1:367817039949:web:5c72215819b9bb1eb07c04",
             measurementId: "G-WY0QSKYVCR",
@@ -112,7 +112,7 @@ class FitnessApp {
             this.db = firebase.database();
             this.auth = firebase.auth(); // Firebase Authentication
             this.currentQRMsg = null;
-            this.dbRef = this.db.ref('kandalGymState');
+            this.dbRef = this.db.ref('GymNexusState');
             console.log("Firebase inicializado com autenticacao.");
         } catch (fbErr) {
             console.error("Erro ao inicializar Firebase:", fbErr);
@@ -182,7 +182,7 @@ class FitnessApp {
         this.initGlobalScanner();
 
         // --- CANAL DE COMUNICAÇÃO PARA MONITOR ---
-        this.accessChannel = new BroadcastChannel("kandal_access");
+        this.accessChannel = new BroadcastChannel("nexus_access");
         this.accessChannel.onmessage = (ev) => {
             if (ev.data && ev.data.type === 'access_request') {
                 this.processarLeituraQR(ev.data.code);
@@ -243,10 +243,10 @@ class FitnessApp {
             const targetV = 'v90'; // Forçar v90 (Template Plans & Mobile Nav Fix)
             const currentV = localStorage.getItem('kg_v');
             if (currentV !== targetV) {
-                console.warn("Forçando atualização total da App (KandalGym v70)...");
+                console.warn("Forçando atualização total da App (GymNexus v70)...");
                 localStorage.setItem('kg_v', targetV);
-                localStorage.removeItem('kandalgym_session');
-                localStorage.removeItem('kandalgym_state');
+                localStorage.removeItem('GymNexus_session');
+                localStorage.removeItem('GymNexus_state');
 
                 if ('caches' in window) {
                     caches.keys().then((names) => {
@@ -456,7 +456,7 @@ class FitnessApp {
         try {
             // Tentar gravar no LocalStorage (cache rapido)
             try {
-                localStorage.setItem('kandalgym_state', JSON.stringify(this.state));
+                localStorage.setItem('GymNexus_state', JSON.stringify(this.state));
             } catch (lsError) {
                 console.warn('LocalStorage Quota exceeded');
             }
@@ -464,7 +464,7 @@ class FitnessApp {
             const cleanState = JSON.parse(JSON.stringify(this.state));
             await this.dbRef.set(cleanState);
             // Backup imediato no localStorage para evitar perda de dados local
-            localStorage.setItem('kandalgym_state', JSON.stringify(cleanState));
+            localStorage.setItem('GymNexus_state', JSON.stringify(cleanState));
             console.log("Estado guardado com sucesso no Firebase");
         } catch (e) {
             console.error('Firebase Sync error:', e);
@@ -517,9 +517,9 @@ class FitnessApp {
                 }
 
                 // 2. Conta mestre garantida
-                if (!this.state.admins.some(a => a.email === 'admin@kandalgym.com')) {
+                if (!this.state.admins.some(a => a.email === 'admin@GymNexus.com')) {
                     this.state.admins.push({
-                        id: 1, name: 'KandalGym Master', email: 'admin@kandalgym.com', password: 'admin', role: 'admin'
+                        id: 1, name: 'GymNexus Master', email: 'admin@GymNexus.com', password: 'admin', role: 'admin'
                     });
                 }
 
@@ -530,7 +530,7 @@ class FitnessApp {
 
                 // 4. Sincronização local e UI
                 try {
-                    localStorage.setItem('kandalgym_state', JSON.stringify(this.state));
+                    localStorage.setItem('GymNexus_state', JSON.stringify(this.state));
                 } catch (e) { }
 
                 this.syncSessionWithState();
@@ -675,7 +675,7 @@ class FitnessApp {
             <div class="login-card">
                 <div class="login-hero">
                     <div class="logo">
-                        <img src="logo.png" alt="KandalGym Logo">
+                        <img src="logo.png" alt="GymNexus Logo">
                     </div>
                     <p>Entre na sua conta para continuar</p>
                 </div>
@@ -715,7 +715,7 @@ class FitnessApp {
             <div class="login-card animate-scale-in">
                 <div class="login-hero">
                     <div class="logo">
-                        <img src="logo.png" alt="KandalGym Logo">
+                        <img src="logo.png" alt="GymNexus Logo">
                     </div>
                     <h3>Recuperar Conta</h3>
                     <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.5; margin-top:0.5rem; padding: 0 1rem;">
@@ -810,14 +810,14 @@ class FitnessApp {
             user = allUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
         }
 
-        let message = "Olá KandalGym! Gostaria de solicitar a recuperação da minha palavra-passe.";
+        let message = "Olá GymNexus! Gostaria de solicitar a recuperação da minha palavra-passe.";
 
         if (user) {
             // Se encontrarmos o utilizador, enviamos Nome e Email
-            message = `Olá KandalGym! O meu nome é ${user.name}, o meu email é ${user.email} e gostaria de solicitar a recuperação da minha palavra-passe.`;
+            message = `Olá GymNexus! O meu nome é ${user.name}, o meu email é ${user.email} e gostaria de solicitar a recuperação da minha palavra-passe.`;
         } else if (email) {
             // Se só tivermos o email, enviamos só o email
-            message = `Olá KandalGym! O meu email é ${email} e gostaria de solicitar a recuperação da minha palavra-passe.`;
+            message = `Olá GymNexus! O meu email é ${email} e gostaria de solicitar a recuperação da minha palavra-passe.`;
         }
 
         const waUrl = `https://wa.me/351963939017?text=${encodeURIComponent(message)}`;
@@ -961,12 +961,12 @@ class FitnessApp {
             currentClientId: this.currentClientId,
             activeView: this.activeView
         };
-        localStorage.setItem('kandalgym_session', JSON.stringify(session));
+        localStorage.setItem('GymNexus_session', JSON.stringify(session));
     }
 
     restoreLogin() {
         try {
-            const savedSession = localStorage.getItem('kandalgym_session');
+            const savedSession = localStorage.getItem('GymNexus_session');
             if (savedSession && savedSession !== 'null' && savedSession !== 'undefined') {
                 const session = JSON.parse(savedSession);
                 if (session && typeof session === 'object') {
@@ -980,14 +980,14 @@ class FitnessApp {
 
         } catch (e) {
             console.error("Erro ao restaurar sessão:", e);
-            localStorage.removeItem('kandalgym_session');
+            localStorage.removeItem('GymNexus_session');
         }
     }
 
     handleLogout() {
         this.isLoggedIn = false;
         this.currentUser = null;
-        localStorage.removeItem('kandalgym_session');
+        localStorage.removeItem('GymNexus_session');
         localStorage.removeItem('kg_saved_creds');
         if (this.auth) this.auth.signOut().catch(() => { });
         window.location.reload();
@@ -1295,11 +1295,11 @@ class FitnessApp {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
 
-        const subject = `Bem-vindo a KandalGym - ${name}`;
+        const subject = `Bem-vindo a GymNexus - ${name}`;
         const body = `Olá ${name},
-A sua conta de ${label} na KandalGym foi criada com sucesso!
+A sua conta de ${label} na GymNexus foi criada com sucesso!
 Esta App ainda encontra-se em fase de teste, mas poderá já usufruir de várias funcionalidades como: a marcação de aulas, consulta dos seus planos de treino, avaliações físicas e planos alimentares.
-Poderá aceder a plataforma através do seguinte endereço: https://kandalspahealthclub.github.io/KandalGym/
+Poderá aceder a plataforma através do seguinte endereço: https://gymnexusspahealthclub.github.io/GymNexus/
 
 *As suas credenciais de acesso são:*
 - *Email:* ${email}
@@ -1309,9 +1309,9 @@ Poderá aceder a plataforma através do seguinte endereço: https://kandalspahea
 
 Recomendamos que guarde este link nos seus favoritos ou instale a App no seu telemóvel.
 Bons treinos!
-Equipa KandalGym`;
+Equipa GymNexus`;
 
-        const whatsappText = `*Bem-vindo a KandalGym*\n` +
+        const whatsappText = `*Bem-vindo a GymNexus*\n` +
             `---------------------------------------------\n` +
             `Olá *${name}*, a sua conta de *${label}* foi criada!\n` +
             `*CREDENCIAIS DE ACESSO:*\n` +
@@ -1319,7 +1319,7 @@ Equipa KandalGym`;
             `*Password:* ${pass}\n` +
             `*AVISO:* Altere a sua password no menu "Perfil" após o primeiro acesso.\n\n` +
             `_A App está em fase de teste, mas já pode usar a marcação de aulas, os planos de treino e muito mais._\n` +
-            `*Acesso:* https://kandalspahealthclub.github.io/KandalGym/\n` +
+            `*Acesso:* https://gymnexusspahealthclub.github.io/GymNexus/\n` +
             `Bons treinos!`;
 
         const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -2097,7 +2097,7 @@ Equipa KandalGym`;
                 </div>
                 
                 <div style="margin-top: 1.5rem; background: rgba(255,193,7,0.1); border-left: 4px solid #ffc107; padding: 0.8rem; font-size: 0.8rem;">
-                    <i class="fas fa-info-circle"></i> <strong>Nota:</strong> O sistema irá gerar emails automáticos (ex: 912345678@kandalgym.pt) e definir a password padrão: <strong>Kandal123</strong>.
+                    <i class="fas fa-info-circle"></i> <strong>Nota:</strong> O sistema irá gerar emails automáticos (ex: 912345678@GymNexus.pt) e definir a password padrão: <strong>Nexus123</strong>.
                 </div>
 
                 <div id="bulk-import-cancel" style="margin-top: 1.5rem; text-align: center;">
@@ -2179,8 +2179,8 @@ Equipa KandalGym`;
 
             // Gerar dados automáticos
             const newId = Date.now() + imported;
-            const email = (raw.email || raw.Email || `${cleanPhone}@kandalgym.pt`).toLowerCase().trim();
-            const pass = raw.password || raw.pass || "Kandal123";
+            const email = (raw.email || raw.Email || `${cleanPhone}@GymNexus.pt`).toLowerCase().trim();
+            const pass = raw.password || raw.pass || "Nexus123";
 
             const newClient = {
                 id: newId,
@@ -2229,7 +2229,7 @@ Equipa KandalGym`;
         const a = document.createElement('a');
         const now = new Date().toISOString().split('T')[0];
         a.href = url;
-        a.download = `Backup_Clientes_KandalGym_${now}.json`;
+        a.download = `Backup_Clientes_GymNexus_${now}.json`;
         a.click();
         URL.revokeObjectURL(url);
     }
@@ -2299,7 +2299,7 @@ Equipa KandalGym`;
     }
 
     openAccessMonitor() {
-        const monitorWindow = window.open('', 'KandalMonitor', 'width=1200,height=800');
+        const monitorWindow = window.open('', 'NexusMonitor', 'width=1200,height=800');
         if (!monitorWindow) return alert("Por favor, permita pop-ups para abrir o monitor.");
 
         const css = ':root { --primary: #6366f1; --secondary: #10b981; --danger: #ef4444; --bg: #0f172a; --text: #f8fafc; } ' +
@@ -2319,7 +2319,7 @@ Equipa KandalGym`;
             '@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } } ' +
             '@keyframes slideUp { from { opacity: 0; transform: translateY(100px); } to { opacity: 1; transform: translateY(0); } }';
 
-        let html = '<html><head><title>KandalGym - Monitor de Acesso</title>' +
+        let html = '<html><head><title>GymNexus - Monitor de Acesso</title>' +
             '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">' +
             '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">' +
             '<style>' + css + '</style></head><body>' +
@@ -2334,7 +2334,7 @@ Equipa KandalGym`;
             '<input type="text" id="monitor-scanner-input" autocomplete="off" style="position:fixed; top:-100px; left:-100px; opacity:0;">' +
 
             '<script>' +
-            'const bc = new BroadcastChannel("kandal_access"); let timeout; ' +
+            'const bc = new BroadcastChannel("nexus_access"); let timeout; ' +
             'const hwInput = document.getElementById("monitor-scanner-input"); ' +
 
             'hwInput.onkeyup = (e) => { ' +
@@ -2670,7 +2670,7 @@ Equipa KandalGym`;
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.state.exercises, null, 2));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `KandalGym_Exercicios_Backup_${new Date().toISOString().split('T')[0]}.json`);
+        downloadAnchorNode.setAttribute("download", `GymNexus_Exercicios_Backup_${new Date().toISOString().split('T')[0]}.json`);
         document.body.appendChild(downloadAnchorNode);
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
@@ -3047,7 +3047,7 @@ Equipa KandalGym`;
         if (type === 'email') {
             const emails = clients.map(c => c.email).filter(e => e && e !== 'undefined').join(',');
             if (!emails) return alert('Nenhum dos clientes selecionados possui email registado.');
-            const mailto = `mailto:?bcc=${emails}&subject=KandalGym%20-%20Comunicado&body=${encodeURIComponent(msg)}`;
+            const mailto = `mailto:?bcc=${emails}&subject=GymNexus%20-%20Comunicado&body=${encodeURIComponent(msg)}`;
             window.location.href = mailto;
         } else if (type === 'whatsapp') {
             // Because Popup blockers prevent multiple WhatsApp tabs, handle it via a guided modal
@@ -3289,7 +3289,7 @@ Equipa KandalGym`;
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.state.foods, null, 2));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `KandalGym_Alimentos_Backup_${new Date().toISOString().split('T')[0]}.json`);
+        downloadAnchorNode.setAttribute("download", `GymNexus_Alimentos_Backup_${new Date().toISOString().split('T')[0]}.json`);
         document.body.appendChild(downloadAnchorNode);
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
@@ -3903,14 +3903,14 @@ Equipa KandalGym`;
 
     setViewingDayIdx(idx, clientId) {
         this.viewingDayIdx = idx;
-        localStorage.setItem('kandalgym_vIdx', idx);
+        localStorage.setItem('GymNexus_vIdx', idx);
         this.renderTrainingView(null, clientId);
     }
 
     openTrainingEditor(clientId) {
         clientId = Number(clientId);
         // Verificar se existe um rascunho pendente
-        const draft = localStorage.getItem('kandalgym_training_draft');
+        const draft = localStorage.getItem('GymNexus_training_draft');
         if (draft) {
             const draftData = JSON.parse(draft);
             if (draftData.clientId === clientId) {
@@ -3921,7 +3921,7 @@ Equipa KandalGym`;
                     this.setView('edit_training');
                     return;
                 } else {
-                    localStorage.removeItem('kandalgym_training_draft');
+                    localStorage.removeItem('GymNexus_training_draft');
                 }
             }
         }
@@ -3957,11 +3957,11 @@ Equipa KandalGym`;
             plan: this.editingPlan,
             timestamp: Date.now()
         };
-        localStorage.setItem('kandalgym_training_draft', JSON.stringify(draftData));
+        localStorage.setItem('GymNexus_training_draft', JSON.stringify(draftData));
     }
 
     clearTrainingDraft() {
-        localStorage.removeItem('kandalgym_training_draft');
+        localStorage.removeItem('GymNexus_training_draft');
     }
 
     renderTrainingEditor() {
@@ -5622,7 +5622,7 @@ Equipa KandalGym`;
             case 'dashboard':
                 container.innerHTML = `
                     <h2 class="animate-fade-in">Bem-vindo, ${c.name} </h2>
-                    <p style="color:var(--text-muted); margin-bottom:1rem;">Este é o seu painel de acompanhamento KandalGym.</p>
+                    <p style="color:var(--text-muted); margin-bottom:1rem;">Este é o seu painel de acompanhamento GymNexus.</p>
                     
                     ${(() => {
                         const t = this.state.teachers.find(teacher => teacher.id === c.teacherId);
@@ -6426,7 +6426,7 @@ Equipa KandalGym`;
         Object.keys(threads).forEach(id => {
             const t = threads[id];
             if (id === 'system') {
-                t.user = { name: 'Sistema KandalGym', photoUrl: null, role: 'system' };
+                t.user = { name: 'Sistema GymNexus', photoUrl: null, role: 'system' };
             } else if (!t.user) {
                 const uid = Number(id);
                 t.user = this.state.clients.find(c => c.id === uid) ||
@@ -6441,7 +6441,7 @@ Equipa KandalGym`;
             }
         });
 
-        // 4. Ordenar threads: Sistema KandalGym primeiro (para admin), depois por data, depois alfabetico
+        // 4. Ordenar threads: Sistema GymNexus primeiro (para admin), depois por data, depois alfabetico
         const sortedThreads = Object.values(threads).sort((a, b) => {
             if (this.role === 'admin') {
                 if (a.id === 'system') return -1;
@@ -7453,7 +7453,7 @@ Equipa KandalGym`;
         // 2. Build the HTML content
         let html = `
             <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #911B2B; padding-bottom: 10px;">
-                <h1 style="color: #911B2B; margin: 0;">KandalGym</h1>
+                <h1 style="color: #911B2B; margin: 0;">GymNexus</h1>
                 <p style="color: #666; margin: 5px 0;">Plano de Treino Personalizado</p>
             </div>
 
@@ -7496,7 +7496,7 @@ Equipa KandalGym`;
 
         html += `
             <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #999;">
-                <p>Gerado por KandalGym App</p>
+                <p>Gerado por GymNexus App</p>
             </div>
             `;
 
@@ -7534,7 +7534,7 @@ Equipa KandalGym`;
         // Build HTML content
         let htmlContent = `
             <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #911B2B; padding-bottom: 10px;">
-                <h1 style="color: #911B2B; margin: 0;">KandalGym</h1>
+                <h1 style="color: #911B2B; margin: 0;">GymNexus</h1>
                 <p style="color: #666; margin: 5px 0;">Plano Alimentar Personalizado</p>
             </div>
 
@@ -7618,7 +7618,7 @@ Equipa KandalGym`;
 
         let html = `
             <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #911B2B; padding-bottom: 10px;">
-                <h1 style="color: #911B2B; margin: 0;">KandalGym</h1>
+                <h1 style="color: #911B2B; margin: 0;">GymNexus</h1>
                 <p style="color: #666; margin: 5px 0;">Relatório de Avaliação Física</p>
             </div>
 
@@ -7686,7 +7686,7 @@ Equipa KandalGym`;
 
         const html = `
             <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #911B2B; padding-bottom: 10px;">
-                <h1 style="color: #911B2B; margin: 0;">KandalGym</h1>
+                <h1 style="color: #911B2B; margin: 0;">GymNexus</h1>
                 <p style="color: #666; margin: 5px 0;">Relatório de Anamnese Física</p>
             </div>
 
@@ -7733,7 +7733,7 @@ Equipa KandalGym`;
             </div>
 
             <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #999;">
-                <p>Gerado por KandalGym App</p>
+                <p>Gerado por GymNexus App</p>
             </div>
         `;
 
@@ -8183,7 +8183,7 @@ Equipa KandalGym`;
         const isStaff = (this.state.teachers || []).some(t => Number(t.id) === Number(user.id));
         const type = isStaff ? 'teacher' : 'client';
 
-        this.showInviteModal(user.name, user.email, user.password || 'Kandal123', type, user.phone, qrId);
+        this.showInviteModal(user.name, user.email, user.password || 'Nexus123', type, user.phone, qrId);
     }
 
     filterQRList(val) {
@@ -8588,7 +8588,7 @@ Equipa KandalGym`;
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 let errorMsg = "O seu navegador não suporta acesso áÂ  câmara.";
                 if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                    errorMsg = "ERRO DE SEGURANÇA: O scanner live só funciona em ligações seguras (HTTPS disponível em KandalGym.com). Sugerimos usar o botão 'Tirar Foto' ou 'Entrada Manual'.";
+                    errorMsg = "ERRO DE SEGURANÇA: O scanner live só funciona em ligações seguras (HTTPS disponível em GymNexus.com). Sugerimos usar o botão 'Tirar Foto' ou 'Entrada Manual'.";
                 }
                 throw new Error(errorMsg);
             }
@@ -8790,7 +8790,7 @@ Equipa KandalGym`;
 
         if (!c) {
             this.showQRMsg(" Codigo não reconhecido", "bg-qr-danger");
-            new BroadcastChannel('kandal_access').postMessage({
+            new BroadcastChannel('nexus_access').postMessage({
                 type: 'access_event',
                 data: { name: 'INVÁLIDOÂLIDO', msg: 'Cáâ€œDIGO DESCONHECIDO', valid: false, photo: null }
             });
@@ -8802,7 +8802,7 @@ Equipa KandalGym`;
 
         if (!c.ativo) {
             this.showQRMsg(` ${c.nome}: Conta Inativa`, "bg-qr-danger");
-            new BroadcastChannel('kandal_access').postMessage({
+            new BroadcastChannel('nexus_access').postMessage({
                 type: 'access_event',
                 data: { name: c.nome, msg: 'CONTA INATIVA', valid: false, photo: c.photoUrl || null }
             });
@@ -8859,7 +8859,7 @@ Equipa KandalGym`;
             this.showQRMsg(`Até amanhã, ${c.nome}! Saída registada.`, "bg-qr-warning");
             this.showToast(`Saída registada: ${c.nome}`, "info");
 
-            new BroadcastChannel('kandal_access').postMessage({
+            new BroadcastChannel('nexus_access').postMessage({
                 type: 'access_event',
                 data: { name: c.nome, msg: 'ATÉ AMANHÃ! (SAÍDA)', valid: true, photo: c.photoUrl || null }
             });
@@ -8871,7 +8871,7 @@ Equipa KandalGym`;
                 // Validar data
                 if (hj > (c.validade || '')) {
                     this.showQRMsg(`${c.nome}: Validade Expirada`, "bg-qr-warning");
-                    new BroadcastChannel('kandal_access').postMessage({
+                    new BroadcastChannel('nexus_access').postMessage({
                         type: 'access_event',
                         data: { name: c.nome, msg: 'VALIDADE EXPIRADA', valid: false, photo: c.photoUrl || null }
                     });
@@ -8882,7 +8882,7 @@ Equipa KandalGym`;
                 // Validar créditos
                 if ((c.ent || 0) <= 0) {
                     this.showQRMsg(`${c.nome}: Sem créditos`, "bg-qr-danger");
-                    new BroadcastChannel('kandal_access').postMessage({
+                    new BroadcastChannel('nexus_access').postMessage({
                         type: 'access_event',
                         data: { name: c.nome, msg: 'SEM CRÉDITOS', valid: false, photo: c.photoUrl || null }
                     });
@@ -8906,7 +8906,7 @@ Equipa KandalGym`;
 
                 if (entriesHj >= limitDiario) {
                     this.showQRMsg(`${c.nome}: Limite diário atingido`, "bg-qr-warning");
-                    new BroadcastChannel('kandal_access').postMessage({
+                    new BroadcastChannel('nexus_access').postMessage({
                         type: 'access_event',
                         data: { name: c.nome, msg: 'LIMITE DIÁRIO', valid: false, photo: c.photoUrl || null }
                     });
@@ -8923,7 +8923,7 @@ Equipa KandalGym`;
             this.showQRMsg(`Bem-vindo, ${c.nome}! Entrada validada.`, "bg-qr-success");
             this.showToast(`Entrada validada: ${c.nome}`, "success");
 
-            new BroadcastChannel('kandal_access').postMessage({
+            new BroadcastChannel('nexus_access').postMessage({
                 type: 'access_event',
                 data: { name: c.nome, msg: 'BEM-VINDO!', valid: true, photo: c.photoUrl || null }
             });
@@ -9256,7 +9256,7 @@ Equipa KandalGym`;
                     throw err;
                 });
 
-                localStorage.setItem('kandalgym_state', JSON.stringify(this.state));
+                localStorage.setItem('GymNexus_state', JSON.stringify(this.state));
                 if (this.role !== 'client') {
                     this.showToast('Horário das aulas atualizado com sucesso.', 'success');
                 }
@@ -10201,8 +10201,8 @@ Equipa KandalGym`;
         const c = this.state.clients.find(cl => cl.id == clientId);
         if (!c) return;
 
-        const appUrl = "https://kandalspahealthclub.github.io/KandalGym/";
-        const message = `Olá ${c.name}, o seu professor atualizou o seu ${topic} no KandalGym! Aceda aqui para ver: ${appUrl}`;
+        const appUrl = "https://gymnexusspahealthclub.github.io/GymNexus/";
+        const message = `Olá ${c.name}, o seu professor atualizou o seu ${topic} no GymNexus! Aceda aqui para ver: ${appUrl}`;
 
         if (type === 'whatsapp') {
             let phone = (c.phone || '').replace(/\s/g, '').replace('+', '');
@@ -10218,7 +10218,7 @@ Equipa KandalGym`;
         } else if (type === 'email') {
             const email = c.email;
             if (!email) return alert('O cliente não tem e-mail registado!');
-            const mailUrl = `mailto:${email}?subject=KandalGym - Atualização de ${topic}&body=${encodeURIComponent(message)}`;
+            const mailUrl = `mailto:${email}?subject=GymNexus - Atualização de ${topic}&body=${encodeURIComponent(message)}`;
             window.location.href = mailUrl;
         }
     }

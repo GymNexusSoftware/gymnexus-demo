@@ -1,11 +1,11 @@
-{
-    "name": "KandalGym",
-    "short_name": "KandalGym",
+﻿{
+    "name": "GymNexus",
+    "short_name": "GymNexus",
     "start_url": "./index.html",
     "display": "standalone",
     "background_color": "#0a0a0a",
     "theme_color": "#0a0a0a",
-    "description": "Plataforma de Personal Training e Nutrição KandalGym",
+    "description": "Plataforma de Personal Training e Nutrição GymNexus",
     "orientation": "portrait",
     "icons": [
         {
